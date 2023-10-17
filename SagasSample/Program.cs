@@ -14,7 +14,7 @@ namespace SagasSample;
 internal class Program
 {
     private const string _connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=SagaSample";
-    private const bool _useMediator = false;
+    private const bool _useMediator = true;
 
     public static async Task Main(string[] args)
     {
@@ -45,6 +45,9 @@ internal class Program
             {
                 var mediator = host.Services.GetRequiredService<IMediator>();
                 await mediator.Send(message);
+
+                //var scheduler = host.Services.GetRequiredService<IMessageScheduler>();
+                //await scheduler.SchedulePublish(DateTime.UtcNow + TimeSpan.FromSeconds(30), message);
             } else
             {
                 var bus = host.Services.GetRequiredService<IBus>();
@@ -157,7 +160,9 @@ internal class Program
                 services.AddMassTransit(o =>
                 {
                     var entryAssembly = Assembly.GetEntryAssembly();
-                    o.AddConsumers(entryAssembly);
+
+                    o.AddPublishMessageScheduler();
+                    o.AddHangfireConsumers();
 
                     o.AddSagaStateMachine<OrderStateMachine, OrderState>()
                        .EntityFrameworkRepository(r =>
@@ -180,6 +185,12 @@ internal class Program
                     {
                         cfg.AddSagaStateMachines(entryAssembly);
                         cfg.AddSagas(entryAssembly);
+                    });
+
+                    o.UsingInMemory((context, cfg) =>
+                    {
+                        cfg.UsePublishMessageScheduler();
+                        cfg.ConfigureEndpoints(context);
                     });
                 });
             });
